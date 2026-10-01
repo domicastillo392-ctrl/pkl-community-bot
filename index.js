@@ -1,4 +1,3 @@
-```js
 const {
     Client,
     GatewayIntentBits,
@@ -21,10 +20,6 @@ const client = new Client({
     ]
 });
 
-// =========================
-// COMANDOS
-// =========================
-
 const commands = [
 
     new SlashCommandBuilder()
@@ -39,17 +34,17 @@ const commands = [
 
     new SlashCommandBuilder()
         .setName("embed")
-        .setDescription("Envía un anuncio en formato embed")
+        .setDescription("Envía un anuncio con embed")
         .addStringOption(option =>
             option
                 .setName("titulo")
-                .setDescription("Título del anuncio")
+                .setDescription("Título del embed")
                 .setRequired(true)
         )
         .addStringOption(option =>
             option
                 .setName("mensaje")
-                .setDescription("Contenido del anuncio")
+                .setDescription("Contenido del embed")
                 .setRequired(true)
         ),
 
@@ -67,7 +62,8 @@ const commands = [
                 .setName("razon")
                 .setDescription("Razón del baneo")
                 .setRequired(false)
-        ),
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
     new SlashCommandBuilder()
         .setName("kick")
@@ -83,11 +79,12 @@ const commands = [
                 .setName("razon")
                 .setDescription("Razón de la expulsión")
                 .setRequired(false)
-        ),
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
 
     new SlashCommandBuilder()
         .setName("timeout")
-        .setDescription("Silencia temporalmente a un usuario")
+        .setDescription("Aplica timeout a un usuario")
         .addUserOption(option =>
             option
                 .setName("usuario")
@@ -105,9 +102,10 @@ const commands = [
         .addStringOption(option =>
             option
                 .setName("razon")
-                .setDescription("Razón")
+                .setDescription("Razón del timeout")
                 .setRequired(false)
-        ),
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
     new SlashCommandBuilder()
         .setName("warn")
@@ -115,7 +113,7 @@ const commands = [
         .addUserOption(option =>
             option
                 .setName("usuario")
-                .setDescription("Usuario")
+                .setDescription("Usuario a advertir")
                 .setRequired(true)
         )
         .addStringOption(option =>
@@ -123,19 +121,21 @@ const commands = [
                 .setName("razon")
                 .setDescription("Razón de la advertencia")
                 .setRequired(true)
-        ),
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
     new SlashCommandBuilder()
         .setName("clear")
-        .setDescription("Elimina mensajes del canal")
+        .setDescription("Elimina mensajes")
         .addIntegerOption(option =>
             option
                 .setName("cantidad")
-                .setDescription("Cantidad de mensajes")
+                .setDescription("Cantidad de mensajes a eliminar")
                 .setRequired(true)
                 .setMinValue(1)
                 .setMaxValue(100)
-        ),
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
     new SlashCommandBuilder()
         .setName("server")
@@ -167,20 +167,14 @@ const commands = [
 
     new SlashCommandBuilder()
         .setName("help")
-        .setDescription("Muestra los comandos disponibles")
+        .setDescription("Muestra todos los comandos disponibles")
 
 ].map(command => command.toJSON());
 
-// =========================
-// REGISTRAR COMANDOS
-// =========================
-
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-async function registerCommands() {
+(async () => {
     try {
-        console.log("🔄 Registrando comandos...");
-
         await rest.put(
             Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
             { body: commands }
@@ -188,30 +182,17 @@ async function registerCommands() {
 
         console.log("✅ Comandos registrados correctamente.");
     } catch (error) {
-        console.error("❌ Error registrando comandos:", error);
+        console.error(error);
     }
-}
+})();
 
-// =========================
-// BOT LISTO
-// =========================
-
-client.once("ready", async () => {
-
+client.once("ready", () => {
     console.log(`🤖 Bot conectado como ${client.user.tag}`);
 
     client.user.setActivity("porhub", {
         type: ActivityType.Watching
     });
-
-    console.log("👀 Actividad configurada: Viendo porhub");
-
-    await registerCommands();
 });
-
-// =========================
-// INTERACCIONES
-// =========================
 
 client.on("interactionCreate", async interaction => {
 
@@ -219,71 +200,344 @@ client.on("interactionCreate", async interaction => {
 
     const command = interaction.commandName;
 
-    // =========================
-    // /SAY
-    // =========================
+    try {
 
-    if (command === "say") {
+        // =========================
+        // /SAY
+        // =========================
 
-        if (
-            !STAFF_ROLE_ID ||
-            !interaction.member.roles.cache.has(STAFF_ROLE_ID)
-        ) {
+        if (command === "say") {
+
+            if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+                return interaction.reply({
+                    content: "❌ No tienes permiso para usar este comando.",
+                    ephemeral: true
+                });
+            }
+
+            const mensaje = interaction.options.getString("mensaje");
+
+            await interaction.channel.send(mensaje);
+
             return interaction.reply({
-                content: "❌ No tienes permiso para utilizar este comando.",
+                content: "✅ Mensaje enviado.",
                 ephemeral: true
             });
         }
 
-        const mensaje = interaction.options.getString("mensaje");
+        // =========================
+        // /EMBED
+        // =========================
 
-        await interaction.channel.send(mensaje);
+        if (command === "embed") {
 
-        return interaction.reply({
-            content: "✅ Anuncio enviado.",
-            ephemeral: true
-        });
-    }
+            if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+                return interaction.reply({
+                    content: "❌ No tienes permiso para usar este comando.",
+                    ephemeral: true
+                });
+            }
 
-    // =========================
-    // /EMBED
-    // =========================
+            const titulo = interaction.options.getString("titulo");
+            const mensaje = interaction.options.getString("mensaje");
 
-    if (command === "embed") {
+            const embed = new EmbedBuilder()
+                .setTitle(titulo)
+                .setDescription(mensaje)
+                .setTimestamp();
 
-        if (
-            !STAFF_ROLE_ID ||
-            !interaction.member.roles.cache.has(STAFF_ROLE_ID)
-        ) {
+            await interaction.channel.send({
+                embeds: [embed]
+            });
+
             return interaction.reply({
-                content: "❌ No tienes permiso para utilizar este comando.",
+                content: "✅ Embed enviado.",
                 ephemeral: true
             });
         }
 
-        const titulo = interaction.options.getString("titulo");
-        const mensaje = interaction.options.getString("mensaje");
+        // =========================
+        // /BAN
+        // =========================
 
-        const embed = new EmbedBuilder()
-            .setTitle(titulo)
-            .setDescription(mensaje)
-            .setTimestamp();
+        if (command === "ban") {
 
-        await interaction.channel.send({
-            embeds: [embed]
-        });
+            if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+                return interaction.reply({
+                    content: "❌ No tienes permiso para usar este comando.",
+                    ephemeral: true
+                });
+            }
+
+            const usuario = interaction.options.getUser("usuario");
+            const razon =
+                interaction.options.getString("razon") || "Sin razón especificada";
+
+            await interaction.guild.members.ban(usuario.id, {
+                reason: razon
+            });
+
+            return interaction.reply(
+                `🔨 **${usuario.tag}** ha sido baneado.\n📝 Razón: ${razon}`
+            );
+        }
+
+        // =========================
+        // /KICK
+        // =========================
+
+        if (command === "kick") {
+
+            if (!interaction.member.permissions.has(PermissionFlagsBits.KickMembers)) {
+                return interaction.reply({
+                    content: "❌ No tienes permiso para usar este comando.",
+                    ephemeral: true
+                });
+            }
+
+            const usuario = interaction.options.getUser("usuario");
+            const razon =
+                interaction.options.getString("razon") || "Sin razón especificada";
+
+            await interaction.guild.members.kick(usuario.id, razon);
+
+            return interaction.reply(
+                `👢 **${usuario.tag}** ha sido expulsado.\n📝 Razón: ${razon}`
+            );
+        }
+
+        // =========================
+        // /TIMEOUT
+        // =========================
+
+        if (command === "timeout") {
+
+            if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+                return interaction.reply({
+                    content: "❌ No tienes permiso para usar este comando.",
+                    ephemeral: true
+                });
+            }
+
+            const usuario = interaction.options.getUser("usuario");
+            const minutos = interaction.options.getInteger("minutos");
+            const razon =
+                interaction.options.getString("razon") || "Sin razón especificada";
+
+            const miembro = await interaction.guild.members.fetch(usuario.id);
+
+            await miembro.timeout(minutos * 60 * 1000, razon);
+
+            return interaction.reply(
+                `⏳ **${usuario.tag}** recibió un timeout de **${minutos} minutos**.\n📝 Razón: ${razon}`
+            );
+        }
+
+        // =========================
+        // /WARN
+        // =========================
+
+        if (command === "warn") {
+
+            if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+                return interaction.reply({
+                    content: "❌ No tienes permiso para usar este comando.",
+                    ephemeral: true
+                });
+            }
+
+            const usuario = interaction.options.getUser("usuario");
+            const razon = interaction.options.getString("razon");
+
+            return interaction.reply(
+                `⚠️ **${usuario.tag}** ha recibido una advertencia.\n📝 Razón: ${razon}`
+            );
+        }
+
+        // =========================
+        // /CLEAR
+        // =========================
+
+        if (command === "clear") {
+
+            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+                return interaction.reply({
+                    content: "❌ No tienes permiso para usar este comando.",
+                    ephemeral: true
+                });
+            }
+
+            const cantidad = interaction.options.getInteger("cantidad");
+
+            await interaction.channel.bulkDelete(cantidad, true);
+
+            return interaction.reply({
+                content: `🧹 Se eliminaron **${cantidad} mensajes**.`,
+                ephemeral: true
+            });
+        }
+
+        // =========================
+        // /SERVER
+        // =========================
+
+        if (command === "server") {
+
+            const guild = interaction.guild;
+
+            const embed = new EmbedBuilder()
+                .setTitle(`🌐 ${guild.name}`)
+                .addFields(
+                    {
+                        name: "👥 Miembros",
+                        value: `${guild.memberCount}`,
+                        inline: true
+                    },
+                    {
+                        name: "🆔 ID",
+                        value: guild.id,
+                        inline: true
+                    },
+                    {
+                        name: "📅 Creado",
+                        value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:F>`,
+                        inline: false
+                    }
+                )
+                .setTimestamp();
+
+            return interaction.reply({
+                embeds: [embed]
+            });
+        }
+
+        // =========================
+        // /USER
+        // =========================
+
+        if (command === "user") {
+
+            const usuario =
+                interaction.options.getUser("usuario") || interaction.user;
+
+            const embed = new EmbedBuilder()
+                .setTitle(`👤 ${usuario.username}`)
+                .setThumbnail(usuario.displayAvatarURL({ size: 1024 }))
+                .addFields(
+                    {
+                        name: "🆔 ID",
+                        value: usuario.id,
+                        inline: true
+                    },
+                    {
+                        name: "📅 Cuenta creada",
+                        value: `<t:${Math.floor(usuario.createdTimestamp / 1000)}:F>`,
+                        inline: false
+                    }
+                )
+                .setTimestamp();
+
+            return interaction.reply({
+                embeds: [embed]
+            });
+        }
+
+        // =========================
+        // /AVATAR
+        // =========================
+
+        if (command === "avatar") {
+
+            const usuario =
+                interaction.options.getUser("usuario") || interaction.user;
+
+            const embed = new EmbedBuilder()
+                .setTitle(`🖼️ Avatar de ${usuario.username}`)
+                .setImage(usuario.displayAvatarURL({
+                    extension: "png",
+                    size: 1024
+                }))
+                .setTimestamp();
+
+            return interaction.reply({
+                embeds: [embed]
+            });
+        }
+
+        // =========================
+        // /PING
+        // =========================
+
+        if (command === "ping") {
+
+            return interaction.reply(
+                `🏓 Pong!\nLatencia: **${client.ws.ping}ms**`
+            );
+        }
+
+        // =========================
+        // /HELP
+        // =========================
+
+        if (command === "help") {
+
+            const embed = new EmbedBuilder()
+                .setTitle("🤖 PKL Community")
+                .setDescription(
+                    "Aquí tienes los comandos disponibles y sus permisos."
+                )
+                .addFields(
+                    {
+                        name: "🌐 Comandos públicos",
+                        value:
+                            "`/server` — Información del servidor\n" +
+                            "`/user` — Información de un usuario\n" +
+                            "`/avatar` — Ver avatar de un usuario\n" +
+                            "`/ping` — Ver latencia del bot"
+                    },
+                    {
+                        name: "📢 Comandos protegidos • Staff",
+                        value:
+                            "`/say` — Enviar un anuncio\n" +
+                            "`/embed` — Enviar un anuncio con embed"
+                    },
+                    {
+                        name: "🛡️ Comandos protegidos • Moderación",
+                        value:
+                            "`/ban` — Banear un usuario\n" +
+                            "`/kick` — Expulsar un usuario\n" +
+                            "`/timeout` — Aplicar timeout\n" +
+                            "`/warn` — Advertir un usuario\n" +
+                            "`/clear` — Eliminar mensajes"
+                    }
+                )
+                .setFooter({
+                    text: "PKL Community • Sistema de comandos"
+                })
+                .setTimestamp();
+
+            return interaction.reply({
+                embeds: [embed],
+                ephemeral: true
+            });
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        if (interaction.replied || interaction.deferred) {
+            return interaction.followUp({
+                content: "❌ Ocurrió un error al ejecutar el comando.",
+                ephemeral: true
+            });
+        }
 
         return interaction.reply({
-            content: "✅ Embed enviado.",
+            content: "❌ Ocurrió un error al ejecutar el comando.",
             ephemeral: true
         });
     }
+});
 
-    // =========================
-    // /BAN
-    // =========================
-
-    if (command === "ban") {
-
-        if (!interaction.member.permissions.has(PermissionFlag
-```
+client.login(TOKEN);
