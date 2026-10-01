@@ -1,3 +1,4 @@
+```js
 const {
     Client,
     GatewayIntentBits,
@@ -16,8 +17,7 @@ const STAFF_ROLE_ID = process.env.STAFF_ROLE_ID;
 
 const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers
+        GatewayIntentBits.Guilds
     ]
 });
 
@@ -225,7 +225,10 @@ client.on("interactionCreate", async interaction => {
 
     if (command === "say") {
 
-        if (!STAFF_ROLE_ID || !interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+        if (
+            !STAFF_ROLE_ID ||
+            !interaction.member.roles.cache.has(STAFF_ROLE_ID)
+        ) {
             return interaction.reply({
                 content: "❌ No tienes permiso para utilizar este comando.",
                 ephemeral: true
@@ -248,7 +251,10 @@ client.on("interactionCreate", async interaction => {
 
     if (command === "embed") {
 
-        if (!STAFF_ROLE_ID || !interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+        if (
+            !STAFF_ROLE_ID ||
+            !interaction.member.roles.cache.has(STAFF_ROLE_ID)
+        ) {
             return interaction.reply({
                 content: "❌ No tienes permiso para utilizar este comando.",
                 ephemeral: true
@@ -279,280 +285,5 @@ client.on("interactionCreate", async interaction => {
 
     if (command === "ban") {
 
-        if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) {
-            return interaction.reply({
-                content: "❌ No tienes permiso para banear usuarios.",
-                ephemeral: true
-            });
-        }
-
-        const usuario = interaction.options.getUser("usuario");
-        const razon = interaction.options.getString("razon") || "Sin razón especificada";
-
-        try {
-            await interaction.guild.members.ban(usuario.id, { reason: razon });
-
-            return interaction.reply(
-                `🔨 **${usuario.tag}** fue baneado.\n**Razón:** ${razon}`
-            );
-
-        } catch {
-            return interaction.reply({
-                content: "❌ No pude banear a ese usuario.",
-                ephemeral: true
-            });
-        }
-    }
-
-    // =========================
-    // /KICK
-    // =========================
-
-    if (command === "kick") {
-
-        if (!interaction.member.permissions.has(PermissionFlagsBits.KickMembers)) {
-            return interaction.reply({
-                content: "❌ No tienes permiso para expulsar usuarios.",
-                ephemeral: true
-            });
-        }
-
-        const usuario = interaction.options.getUser("usuario");
-        const razon = interaction.options.getString("razon") || "Sin razón especificada";
-
-        try {
-            await interaction.guild.members.kick(usuario.id, razon);
-
-            return interaction.reply(
-                `👢 **${usuario.tag}** fue expulsado.\n**Razón:** ${razon}`
-            );
-
-        } catch {
-            return interaction.reply({
-                content: "❌ No pude expulsar a ese usuario.",
-                ephemeral: true
-            });
-        }
-    }
-
-    // =========================
-    // /TIMEOUT
-    // =========================
-
-    if (command === "timeout") {
-
-        if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-            return interaction.reply({
-                content: "❌ No tienes permiso para utilizar timeout.",
-                ephemeral: true
-            });
-        }
-
-        const usuario = interaction.options.getUser("usuario");
-        const minutos = interaction.options.getInteger("minutos");
-        const razon = interaction.options.getString("razon") || "Sin razón especificada";
-
-        try {
-
-            const miembro = await interaction.guild.members.fetch(usuario.id);
-
-            await miembro.timeout(
-                minutos * 60 * 1000,
-                razon
-            );
-
-            return interaction.reply(
-                `🔇 **${usuario.tag}** fue puesto en timeout durante **${minutos} minutos**.\n**Razón:** ${razon}`
-            );
-
-        } catch {
-            return interaction.reply({
-                content: "❌ No pude aplicar el timeout.",
-                ephemeral: true
-            });
-        }
-    }
-
-    // =========================
-    // /WARN
-    // =========================
-
-    if (command === "warn") {
-
-        if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-            return interaction.reply({
-                content: "❌ No tienes permiso para advertir usuarios.",
-                ephemeral: true
-            });
-        }
-
-        const usuario = interaction.options.getUser("usuario");
-        const razon = interaction.options.getString("razon");
-
-        return interaction.reply(
-            `⚠️ **${usuario.tag}** recibió una advertencia.\n**Razón:** ${razon}`
-        );
-    }
-
-    // =========================
-    // /CLEAR
-    // =========================
-
-    if (command === "clear") {
-
-        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-            return interaction.reply({
-                content: "❌ No tienes permiso para eliminar mensajes.",
-                ephemeral: true
-            });
-        }
-
-        const cantidad = interaction.options.getInteger("cantidad");
-
-        try {
-
-            const mensajes = await interaction.channel.bulkDelete(cantidad, true);
-
-            return interaction.reply({
-                content: `🧹 Se eliminaron **${mensajes.size} mensajes**.`,
-                ephemeral: true
-            });
-
-        } catch {
-            return interaction.reply({
-                content: "❌ No pude eliminar los mensajes.",
-                ephemeral: true
-            });
-        }
-    }
-
-    // =========================
-    // /SERVER
-    // =========================
-
-    if (command === "server") {
-
-        const guild = interaction.guild;
-
-        const embed = new EmbedBuilder()
-            .setTitle(`ℹ️ ${guild.name}`)
-            .addFields(
-                {
-                    name: "👥 Miembros",
-                    value: `${guild.memberCount}`,
-                    inline: true
-                },
-                {
-                    name: "🆔 ID",
-                    value: guild.id,
-                    inline: true
-                },
-                {
-                    name: "📅 Creado",
-                    value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:D>`,
-                    inline: true
-                }
-            )
-            .setTimestamp();
-
-        return interaction.reply({
-            embeds: [embed]
-        });
-    }
-
-    // =========================
-    // /USER
-    // =========================
-
-    if (command === "user") {
-
-        const usuario = interaction.options.getUser("usuario") || interaction.user;
-
-        const embed = new EmbedBuilder()
-            .setTitle(`👤 ${usuario.username}`)
-            .setThumbnail(usuario.displayAvatarURL({ dynamic: true }))
-            .addFields(
-                {
-                    name: "🆔 ID",
-                    value: usuario.id
-                },
-                {
-                    name: "📅 Cuenta creada",
-                    value: `<t:${Math.floor(usuario.createdTimestamp / 1000)}:F>`
-                }
-            )
-            .setTimestamp();
-
-        return interaction.reply({
-            embeds: [embed]
-        });
-    }
-
-    // =========================
-    // /AVATAR
-    // =========================
-
-    if (command === "avatar") {
-
-        const usuario = interaction.options.getUser("usuario") || interaction.user;
-
-        const embed = new EmbedBuilder()
-            .setTitle(`🖼️ Avatar de ${usuario.username}`)
-            .setImage(usuario.displayAvatarURL({
-                size: 1024,
-                extension: "png"
-            }))
-            .setTimestamp();
-
-        return interaction.reply({
-            embeds: [embed]
-        });
-    }
-
-    // =========================
-    // /PING
-    // =========================
-
-    if (command === "ping") {
-
-        return interaction.reply(
-            `🏓 Pong!\nLatencia: **${client.ws.ping}ms**`
-        );
-    }
-
-    // =========================
-    // /HELP
-    // =========================
-
-    if (command === "help") {
-
-        const embed = new EmbedBuilder()
-            .setTitle("🤖 PKL Community")
-            .setDescription("Lista de comandos disponibles")
-            .addFields(
-                {
-                    name: "📢 Anuncios",
-                    value: "`/say`\n`/embed`"
-                },
-                {
-                    name: "🛡️ Moderación",
-                    value: "`/ban`\n`/kick`\n`/timeout`\n`/warn`\n`/clear`"
-                },
-                {
-                    name: "ℹ️ Información",
-                    value: "`/server`\n`/user`\n`/avatar`\n`/ping`"
-                }
-            )
-            .setTimestamp();
-
-        return interaction.reply({
-            embeds: [embed]
-        });
-    }
-});
-
-// =========================
-// LOGIN
-// =========================
-
-client.login(TOKEN);
+        if (!interaction.member.permissions.has(PermissionFlag
+```
