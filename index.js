@@ -13,10 +13,15 @@ const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 const STAFF_ROLE_ID = process.env.STAFF_ROLE_ID;
+const TIMEOUT_CHANNEL_ID = process.env.TIMEOUT_CHANNEL_ID;
+
+const TIMEOUT_MINUTES = 10;
 
 const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
     ]
 });
 
@@ -193,6 +198,64 @@ client.once("ready", () => {
         type: ActivityType.Watching
     });
 });
+
+// ==================================================
+// SISTEMA AUTOMÁTICO DE TIMEOUT
+// ==================================================
+
+client.on("messageCreate", async message => {
+
+    if (message.author.bot) return;
+
+    if (message.channel.id !== TIMEOUT_CHANNEL_ID) return;
+
+    try {
+
+        await message.delete().catch(() => {});
+
+        const miembro = await message.guild.members.fetch(message.author.id);
+
+        if (!miembro.moderatable) {
+            console.log(
+                `⚠️ No puedo aplicar timeout a ${message.author.tag}`
+            );
+            return;
+        }
+
+        await miembro.timeout(
+            TIMEOUT_MINUTES * 60 * 1000,
+            "Mensaje enviado en canal restringido"
+        );
+
+        const embed = new EmbedBuilder()
+            .setTitle("⚠️ Canal restringido")
+            .setDescription(
+                `**${message.author}**, este canal no permite enviar mensajes.\n\n` +
+                `🚫 Tu mensaje fue eliminado.\n` +
+                `⏳ Has recibido un **timeout de ${TIMEOUT_MINUTES} minutos**.\n\n` +
+                `Por favor, utiliza los canales correspondientes para comunicarte.`
+            )
+            .setFooter({
+                text: "PKL Community • Sistema automático de moderación"
+            })
+            .setTimestamp();
+
+        const advertencia = await message.channel.send({
+            embeds: [embed]
+        });
+
+        setTimeout(() => {
+            advertencia.delete().catch(() => {});
+        }, 10000);
+
+    } catch (error) {
+        console.error("❌ Error en el sistema automático de timeout:", error);
+    }
+});
+
+// ==================================================
+// INTERACCIONES
+// ==================================================
 
 client.on("interactionCreate", async interaction => {
 
