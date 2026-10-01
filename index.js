@@ -15,7 +15,7 @@ const GUILD_ID = process.env.GUILD_ID;
 const STAFF_ROLE_ID = process.env.STAFF_ROLE_ID;
 const TIMEOUT_CHANNEL_ID = process.env.TIMEOUT_CHANNEL_ID;
 
-const TIMEOUT_MINUTES = 10;
+const TIMEOUT_MINUTES = 1440;
 
 const client = new Client({
     intents: [
@@ -23,6 +23,10 @@ const client = new Client({
         GatewayIntentBits.GuildMessages
     ]
 });
+
+// ==================================================
+// COMANDOS
+// ==================================================
 
 const commands = [
 
@@ -66,8 +70,7 @@ const commands = [
                 .setName("razon")
                 .setDescription("Razón del baneo")
                 .setRequired(false)
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+        ),
 
     new SlashCommandBuilder()
         .setName("kick")
@@ -83,8 +86,7 @@ const commands = [
                 .setName("razon")
                 .setDescription("Razón de la expulsión")
                 .setRequired(false)
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
+        ),
 
     new SlashCommandBuilder()
         .setName("timeout")
@@ -106,10 +108,9 @@ const commands = [
         .addStringOption(option =>
             option
                 .setName("razon")
-                .setDescription("Razón del timeout")
+                .setDescription("Razón")
                 .setRequired(false)
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+        ),
 
     new SlashCommandBuilder()
         .setName("warn")
@@ -117,16 +118,15 @@ const commands = [
         .addUserOption(option =>
             option
                 .setName("usuario")
-                .setDescription("Usuario a advertir")
+                .setDescription("Usuario")
                 .setRequired(true)
         )
         .addStringOption(option =>
             option
                 .setName("razon")
-                .setDescription("Razón de la advertencia")
+                .setDescription("Razón")
                 .setRequired(true)
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+        ),
 
     new SlashCommandBuilder()
         .setName("clear")
@@ -134,12 +134,11 @@ const commands = [
         .addIntegerOption(option =>
             option
                 .setName("cantidad")
-                .setDescription("Cantidad de mensajes a eliminar")
+                .setDescription("Cantidad de mensajes")
                 .setRequired(true)
                 .setMinValue(1)
                 .setMaxValue(100)
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+        ),
 
     new SlashCommandBuilder()
         .setName("server")
@@ -175,43 +174,66 @@ const commands = [
 
 ].map(command => command.toJSON());
 
+// ==================================================
+// REGISTRO DE COMANDOS
+// ==================================================
+
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-(async () => {
+async function registrarComandos() {
+
     try {
+
         console.log("🔄 Registrando comandos...");
+        console.log(`CLIENT_ID: ${CLIENT_ID}`);
+        console.log(`GUILD_ID: ${GUILD_ID}`);
 
         await rest.put(
-            Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-            { body: commands }
+            Routes.applicationGuildCommands(
+                CLIENT_ID,
+                GUILD_ID
+            ),
+            {
+                body: commands
+            }
         );
 
         console.log("✅ Comandos registrados correctamente.");
+        console.log(`📋 ${commands.length} comandos registrados.`);
+
     } catch (error) {
-        console.error("❌ Error registrando comandos:", error);
+
+        console.error("❌ ERROR REGISTRANDO COMANDOS");
+        console.error(error);
+
     }
-})();
+}
+
+// ==================================================
+// BOT READY
+// ==================================================
 
 client.once("ready", () => {
 
+    console.log("=================================");
     console.log(`🤖 Bot conectado como ${client.user.tag}`);
+    console.log(`🌐 Servidor: ${GUILD_ID}`);
+    console.log(`🛡️ Staff Role: ${STAFF_ROLE_ID}`);
+    console.log(`🚨 Canal anti-estafa: ${TIMEOUT_CHANNEL_ID}`);
+    console.log("=================================");
 
-    client.user.setActivity("porhub", {
+    client.user.setActivity("PKL ON TOP", {
         type: ActivityType.Watching
     });
-
-    console.log(`⏰ Canal de timeout: ${TIMEOUT_CHANNEL_ID}`);
-    console.log(`⏱️ Duración del timeout: ${TIMEOUT_MINUTES} minutos`);
 });
 
 // ==================================================
-// SISTEMA AUTOMÁTICO DE TIMEOUT
+// ANTI-ESTAFA
 // ==================================================
 
 client.on("messageCreate", async message => {
 
     if (message.author.bot) return;
-
     if (!message.guild) return;
 
     if (message.channel.id !== TIMEOUT_CHANNEL_ID) return;
@@ -230,60 +252,43 @@ client.on("messageCreate", async message => {
                 `⚠️ No puedo aplicar timeout a ${message.author.tag}`
             );
 
-            const embedError = new EmbedBuilder()
-                .setTitle("⚠️ No se pudo aplicar el timeout")
-                .setDescription(
-                    `${message.author}, no fue posible aplicar el timeout automáticamente.`
-                )
-                .setTimestamp();
-
-            const avisoError = await message.channel.send({
-                embeds: [embedError]
-            });
-
-            setTimeout(() => {
-                avisoError.delete().catch(() => {});
-            }, 10000);
-
             return;
         }
 
         await miembro.timeout(
             TIMEOUT_MINUTES * 60 * 1000,
-            "Mensaje enviado en canal restringido"
+            "Mensaje enviado en canal restringido - prevención de estafas"
         );
 
         const embed = new EmbedBuilder()
-            .setTitle("⚠️ Canal restringido")
+            .setTitle("🚨 Mensaje bloqueado")
             .setDescription(
-                `**${message.author}**, este canal no permite enviar mensajes.\n\n` +
-                `🚫 Tu mensaje fue eliminado.\n` +
-                `⏳ Has recibido un **timeout de ${TIMEOUT_MINUTES} minutos**.\n\n` +
-                `Por favor, utiliza los canales correspondientes para comunicarte.`
+                `**${message.author}**, este canal está restringido.\n\n` +
+                `🗑️ Tu mensaje fue eliminado.\n` +
+                `🔇 Has recibido un **timeout de 24 horas**.\n\n` +
+                `⚠️ Este sistema existe para prevenir spam, enlaces maliciosos y posibles estafas.`
             )
             .setFooter({
-                text: "PKL Community • Sistema automático de moderación"
+                text: "PKL Community • Sistema anti-estafa"
             })
             .setTimestamp();
 
-        const advertencia = await message.channel.send({
+        const aviso = await message.channel.send({
             embeds: [embed]
         });
 
         setTimeout(() => {
-            advertencia.delete().catch(() => {});
+            aviso.delete().catch(() => {});
         }, 10000);
 
         console.log(
-            `🔇 ${message.author.tag} recibió timeout de ${TIMEOUT_MINUTES} minutos.`
+            `🚨 ${message.author.tag} recibió timeout de 24 horas.`
         );
 
     } catch (error) {
 
-        console.error(
-            "❌ Error en el sistema automático de timeout:",
-            error
-        );
+        console.error("❌ Error anti-estafa:", error);
+
     }
 });
 
@@ -299,20 +304,26 @@ client.on("interactionCreate", async interaction => {
 
     try {
 
-        // =========================
-        // /SAY
-        // =========================
+        // ==============================
+        // SAY
+        // ==============================
 
         if (command === "say") {
 
-            if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+            if (
+                !interaction.member.roles.cache.has(
+                    STAFF_ROLE_ID
+                )
+            ) {
+
                 return interaction.reply({
-                    content: "❌ No tienes permiso para usar este comando.",
+                    content: "❌ No tienes el rol Staff necesario.",
                     ephemeral: true
                 });
             }
 
-            const mensaje = interaction.options.getString("mensaje");
+            const mensaje =
+                interaction.options.getString("mensaje");
 
             await interaction.channel.send(mensaje);
 
@@ -322,21 +333,29 @@ client.on("interactionCreate", async interaction => {
             });
         }
 
-        // =========================
-        // /EMBED
-        // =========================
+        // ==============================
+        // EMBED
+        // ==============================
 
         if (command === "embed") {
 
-            if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+            if (
+                !interaction.member.roles.cache.has(
+                    STAFF_ROLE_ID
+                )
+            ) {
+
                 return interaction.reply({
-                    content: "❌ No tienes permiso para usar este comando.",
+                    content: "❌ No tienes el rol Staff necesario.",
                     ephemeral: true
                 });
             }
 
-            const titulo = interaction.options.getString("titulo");
-            const mensaje = interaction.options.getString("mensaje");
+            const titulo =
+                interaction.options.getString("titulo");
+
+            const mensaje =
+                interaction.options.getString("mensaje");
 
             const embed = new EmbedBuilder()
                 .setTitle(titulo)
@@ -353,78 +372,128 @@ client.on("interactionCreate", async interaction => {
             });
         }
 
-        // =========================
-        // /BAN
-        // =========================
+        // ==============================
+        // BAN
+        // ==============================
 
         if (command === "ban") {
 
-            if (!interaction.member.permissions.has(
-                PermissionFlagsBits.BanMembers
-            )) {
+            if (
+                !interaction.member.permissions.has(
+                    PermissionFlagsBits.BanMembers
+                )
+            ) {
+
                 return interaction.reply({
-                    content: "❌ No tienes permiso para usar este comando.",
+                    content: "❌ Necesitas el permiso de Banear miembros.",
                     ephemeral: true
                 });
             }
 
-            const usuario = interaction.options.getUser("usuario");
+            const usuario =
+                interaction.options.getUser("usuario");
 
             const razon =
                 interaction.options.getString("razon") ||
                 "Sin razón especificada";
 
-            await interaction.guild.members.ban(usuario.id, {
-                reason: razon
-            });
+            const miembro =
+                await interaction.guild.members.fetch(
+                    usuario.id
+                ).catch(() => null);
+
+            if (miembro && !miembro.bannable) {
+
+                return interaction.reply({
+                    content:
+                        "❌ No puedo banear a ese usuario. Su rol puede estar por encima del mío.",
+                    ephemeral: true
+                });
+            }
+
+            await interaction.guild.members.ban(
+                usuario.id,
+                {
+                    reason: razon
+                }
+            );
 
             return interaction.reply(
                 `🔨 **${usuario.tag}** ha sido baneado.\n📝 Razón: ${razon}`
             );
         }
 
-        // =========================
-        // /KICK
-        // =========================
+        // ==============================
+        // KICK
+        // ==============================
 
         if (command === "kick") {
 
-            if (!interaction.member.permissions.has(
-                PermissionFlagsBits.KickMembers
-            )) {
+            if (
+                !interaction.member.permissions.has(
+                    PermissionFlagsBits.KickMembers
+                )
+            ) {
+
                 return interaction.reply({
-                    content: "❌ No tienes permiso para usar este comando.",
+                    content:
+                        "❌ Necesitas el permiso de Expulsar miembros.",
                     ephemeral: true
                 });
             }
 
-            const usuario = interaction.options.getUser("usuario");
+            const usuario =
+                interaction.options.getUser("usuario");
 
             const razon =
                 interaction.options.getString("razon") ||
                 "Sin razón especificada";
 
-            await interaction.guild.members.kick(
-                usuario.id,
-                razon
-            );
+            const miembro =
+                await interaction.guild.members.fetch(
+                    usuario.id
+                ).catch(() => null);
+
+            if (!miembro) {
+
+                return interaction.reply({
+                    content:
+                        "❌ Ese usuario no está en el servidor.",
+                    ephemeral: true
+                });
+            }
+
+            if (!miembro.kickable) {
+
+                return interaction.reply({
+                    content:
+                        "❌ No puedo expulsar a ese usuario. Su rol puede estar por encima del mío.",
+                    ephemeral: true
+                });
+            }
+
+            await miembro.kick(razon);
 
             return interaction.reply(
                 `👢 **${usuario.tag}** ha sido expulsado.\n📝 Razón: ${razon}`
             );
         }
 
-        // =========================
-        // /TIMEOUT
-        // =========================
+        // ==============================
+        // TIMEOUT
+        // ==============================
 
         if (command === "timeout") {
 
-            if (!interaction.member.permissions.has(
-                PermissionFlagsBits.ModerateMembers
-            )) {
+            if (
+                !interaction.member.permissions.has(
+                    PermissionFlagsBits.ModerateMembers
+                )
+            ) {
+
                 return interaction.reply({
-                    content: "❌ No tienes permiso para usar este comando.",
+                    content:
+                        "❌ Necesitas el permiso de Moderar miembros.",
                     ephemeral: true
                 });
             }
@@ -440,7 +509,18 @@ client.on("interactionCreate", async interaction => {
                 "Sin razón especificada";
 
             const miembro =
-                await interaction.guild.members.fetch(usuario.id);
+                await interaction.guild.members.fetch(
+                    usuario.id
+                );
+
+            if (!miembro.moderatable) {
+
+                return interaction.reply({
+                    content:
+                        "❌ No puedo aplicar timeout a ese usuario. El rol del bot debe estar por encima del suyo.",
+                    ephemeral: true
+                });
+            }
 
             await miembro.timeout(
                 minutos * 60 * 1000,
@@ -452,17 +532,21 @@ client.on("interactionCreate", async interaction => {
             );
         }
 
-        // =========================
-        // /WARN
-        // =========================
+        // ==============================
+        // WARN
+        // ==============================
 
         if (command === "warn") {
 
-            if (!interaction.member.permissions.has(
-                PermissionFlagsBits.ModerateMembers
-            )) {
+            if (
+                !interaction.member.permissions.has(
+                    PermissionFlagsBits.ModerateMembers
+                )
+            ) {
+
                 return interaction.reply({
-                    content: "❌ No tienes permiso para usar este comando.",
+                    content:
+                        "❌ Necesitas el permiso de Moderar miembros.",
                     ephemeral: true
                 });
             }
@@ -478,17 +562,21 @@ client.on("interactionCreate", async interaction => {
             );
         }
 
-        // =========================
-        // /CLEAR
-        // =========================
+        // ==============================
+        // CLEAR
+        // ==============================
 
         if (command === "clear") {
 
-            if (!interaction.member.permissions.has(
-                PermissionFlagsBits.ManageMessages
-            )) {
+            if (
+                !interaction.member.permissions.has(
+                    PermissionFlagsBits.ManageMessages
+                )
+            ) {
+
                 return interaction.reply({
-                    content: "❌ No tienes permiso para usar este comando.",
+                    content:
+                        "❌ Necesitas el permiso de Gestionar mensajes.",
                     ephemeral: true
                 });
             }
@@ -496,20 +584,22 @@ client.on("interactionCreate", async interaction => {
             const cantidad =
                 interaction.options.getInteger("cantidad");
 
-            await interaction.channel.bulkDelete(
-                cantidad,
-                true
-            );
+            const eliminados =
+                await interaction.channel.bulkDelete(
+                    cantidad,
+                    true
+                );
 
             return interaction.reply({
-                content: `🧹 Se eliminaron **${cantidad} mensajes**.`,
+                content:
+                    `🧹 Se eliminaron **${eliminados.size} mensajes**.`,
                 ephemeral: true
             });
         }
 
-        // =========================
-        // /SERVER
-        // =========================
+        // ==============================
+        // SERVER
+        // ==============================
 
         if (command === "server") {
 
@@ -530,9 +620,10 @@ client.on("interactionCreate", async interaction => {
                     },
                     {
                         name: "📅 Creado",
-                        value: `<t:${Math.floor(
-                            guild.createdTimestamp / 1000
-                        )}:F>`,
+                        value:
+                            `<t:${Math.floor(
+                                guild.createdTimestamp / 1000
+                            )}:F>`,
                         inline: false
                     }
                 )
@@ -543,9 +634,9 @@ client.on("interactionCreate", async interaction => {
             });
         }
 
-        // =========================
-        // /USER
-        // =========================
+        // ==============================
+        // USER
+        // ==============================
 
         if (command === "user") {
 
@@ -568,9 +659,10 @@ client.on("interactionCreate", async interaction => {
                     },
                     {
                         name: "📅 Cuenta creada",
-                        value: `<t:${Math.floor(
-                            usuario.createdTimestamp / 1000
-                        )}:F>`,
+                        value:
+                            `<t:${Math.floor(
+                                usuario.createdTimestamp / 1000
+                            )}:F>`,
                         inline: false
                     }
                 )
@@ -581,9 +673,9 @@ client.on("interactionCreate", async interaction => {
             });
         }
 
-        // =========================
-        // /AVATAR
-        // =========================
+        // ==============================
+        // AVATAR
+        // ==============================
 
         if (command === "avatar") {
 
@@ -592,7 +684,9 @@ client.on("interactionCreate", async interaction => {
                 interaction.user;
 
             const embed = new EmbedBuilder()
-                .setTitle(`🖼️ Avatar de ${usuario.username}`)
+                .setTitle(
+                    `🖼️ Avatar de ${usuario.username}`
+                )
                 .setImage(
                     usuario.displayAvatarURL({
                         extension: "png",
@@ -606,9 +700,9 @@ client.on("interactionCreate", async interaction => {
             });
         }
 
-        // =========================
-        // /PING
-        // =========================
+        // ==============================
+        // PING
+        // ==============================
 
         if (command === "ping") {
 
@@ -617,44 +711,44 @@ client.on("interactionCreate", async interaction => {
             );
         }
 
-        // =========================
-        // /HELP
-        // =========================
+        // ==============================
+        // HELP
+        // ==============================
 
         if (command === "help") {
 
             const embed = new EmbedBuilder()
                 .setTitle("🤖 PKL Community")
                 .setDescription(
-                    "Aquí tienes los comandos disponibles y sus permisos."
+                    "Comandos disponibles:"
                 )
                 .addFields(
                     {
-                        name: "🌐 Comandos públicos",
+                        name: "🌐 Públicos",
                         value:
-                            "`/server` — Información del servidor\n" +
-                            "`/user` — Información de un usuario\n" +
-                            "`/avatar` — Ver avatar de un usuario\n" +
-                            "`/ping` — Ver latencia del bot"
+                            "`/server`\n" +
+                            "`/user`\n" +
+                            "`/avatar`\n" +
+                            "`/ping`"
                     },
                     {
-                        name: "📢 Comandos protegidos • Staff",
+                        name: "📢 Staff",
                         value:
-                            "`/say` — Enviar un anuncio\n" +
-                            "`/embed` — Enviar un anuncio con embed"
+                            "`/say`\n" +
+                            "`/embed`"
                     },
                     {
-                        name: "🛡️ Comandos protegidos • Moderación",
+                        name: "🛡️ Moderación",
                         value:
-                            "`/ban` — Banear un usuario\n" +
-                            "`/kick` — Expulsar un usuario\n" +
-                            "`/timeout` — Aplicar timeout\n" +
-                            "`/warn` — Advertir un usuario\n" +
-                            "`/clear` — Eliminar mensajes"
+                            "`/ban`\n" +
+                            "`/kick`\n" +
+                            "`/timeout`\n" +
+                            "`/warn`\n" +
+                            "`/clear`"
                     }
                 )
                 .setFooter({
-                    text: "PKL Community • Sistema de comandos"
+                    text: "PKL Community"
                 })
                 .setTimestamp();
 
@@ -666,22 +760,40 @@ client.on("interactionCreate", async interaction => {
 
     } catch (error) {
 
-        console.error("❌ Error ejecutando comando:", error);
+        console.error(
+            `❌ Error ejecutando /${command}:`,
+            error
+        );
 
-        if (interaction.replied || interaction.deferred) {
+        if (
+            interaction.replied ||
+            interaction.deferred
+        ) {
 
             return interaction.followUp({
-                content: "❌ Ocurrió un error al ejecutar el comando.",
+                content:
+                    "❌ Ocurrió un error al ejecutar el comando.",
                 ephemeral: true
             });
 
         }
 
         return interaction.reply({
-            content: "❌ Ocurrió un error al ejecutar el comando.",
+            content:
+                "❌ Ocurrió un error al ejecutar el comando.",
             ephemeral: true
         });
     }
 });
 
-client.login(TOKEN);
+// ==================================================
+// INICIO
+// ==================================================
+
+(async () => {
+
+    await registrarComandos();
+
+    client.login(TOKEN);
+
+})();
