@@ -20,8 +20,7 @@ const TIMEOUT_MINUTES = 10;
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.GuildMessages
     ]
 });
 
@@ -180,6 +179,8 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 (async () => {
     try {
+        console.log("🔄 Registrando comandos...");
+
         await rest.put(
             Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
             { body: commands }
@@ -187,16 +188,20 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
 
         console.log("✅ Comandos registrados correctamente.");
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error registrando comandos:", error);
     }
 })();
 
 client.once("ready", () => {
+
     console.log(`🤖 Bot conectado como ${client.user.tag}`);
 
     client.user.setActivity("porhub", {
         type: ActivityType.Watching
     });
+
+    console.log(`⏰ Canal de timeout: ${TIMEOUT_CHANNEL_ID}`);
+    console.log(`⏱️ Duración del timeout: ${TIMEOUT_MINUTES} minutos`);
 });
 
 // ==================================================
@@ -207,18 +212,39 @@ client.on("messageCreate", async message => {
 
     if (message.author.bot) return;
 
+    if (!message.guild) return;
+
     if (message.channel.id !== TIMEOUT_CHANNEL_ID) return;
 
     try {
 
         await message.delete().catch(() => {});
 
-        const miembro = await message.guild.members.fetch(message.author.id);
+        const miembro = await message.guild.members.fetch(
+            message.author.id
+        );
 
         if (!miembro.moderatable) {
+
             console.log(
                 `⚠️ No puedo aplicar timeout a ${message.author.tag}`
             );
+
+            const embedError = new EmbedBuilder()
+                .setTitle("⚠️ No se pudo aplicar el timeout")
+                .setDescription(
+                    `${message.author}, no fue posible aplicar el timeout automáticamente.`
+                )
+                .setTimestamp();
+
+            const avisoError = await message.channel.send({
+                embeds: [embedError]
+            });
+
+            setTimeout(() => {
+                avisoError.delete().catch(() => {});
+            }, 10000);
+
             return;
         }
 
@@ -248,8 +274,16 @@ client.on("messageCreate", async message => {
             advertencia.delete().catch(() => {});
         }, 10000);
 
+        console.log(
+            `🔇 ${message.author.tag} recibió timeout de ${TIMEOUT_MINUTES} minutos.`
+        );
+
     } catch (error) {
-        console.error("❌ Error en el sistema automático de timeout:", error);
+
+        console.error(
+            "❌ Error en el sistema automático de timeout:",
+            error
+        );
     }
 });
 
@@ -325,7 +359,9 @@ client.on("interactionCreate", async interaction => {
 
         if (command === "ban") {
 
-            if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+            if (!interaction.member.permissions.has(
+                PermissionFlagsBits.BanMembers
+            )) {
                 return interaction.reply({
                     content: "❌ No tienes permiso para usar este comando.",
                     ephemeral: true
@@ -333,8 +369,10 @@ client.on("interactionCreate", async interaction => {
             }
 
             const usuario = interaction.options.getUser("usuario");
+
             const razon =
-                interaction.options.getString("razon") || "Sin razón especificada";
+                interaction.options.getString("razon") ||
+                "Sin razón especificada";
 
             await interaction.guild.members.ban(usuario.id, {
                 reason: razon
@@ -351,7 +389,9 @@ client.on("interactionCreate", async interaction => {
 
         if (command === "kick") {
 
-            if (!interaction.member.permissions.has(PermissionFlagsBits.KickMembers)) {
+            if (!interaction.member.permissions.has(
+                PermissionFlagsBits.KickMembers
+            )) {
                 return interaction.reply({
                     content: "❌ No tienes permiso para usar este comando.",
                     ephemeral: true
@@ -359,10 +399,15 @@ client.on("interactionCreate", async interaction => {
             }
 
             const usuario = interaction.options.getUser("usuario");
-            const razon =
-                interaction.options.getString("razon") || "Sin razón especificada";
 
-            await interaction.guild.members.kick(usuario.id, razon);
+            const razon =
+                interaction.options.getString("razon") ||
+                "Sin razón especificada";
+
+            await interaction.guild.members.kick(
+                usuario.id,
+                razon
+            );
 
             return interaction.reply(
                 `👢 **${usuario.tag}** ha sido expulsado.\n📝 Razón: ${razon}`
@@ -375,21 +420,32 @@ client.on("interactionCreate", async interaction => {
 
         if (command === "timeout") {
 
-            if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+            if (!interaction.member.permissions.has(
+                PermissionFlagsBits.ModerateMembers
+            )) {
                 return interaction.reply({
                     content: "❌ No tienes permiso para usar este comando.",
                     ephemeral: true
                 });
             }
 
-            const usuario = interaction.options.getUser("usuario");
-            const minutos = interaction.options.getInteger("minutos");
+            const usuario =
+                interaction.options.getUser("usuario");
+
+            const minutos =
+                interaction.options.getInteger("minutos");
+
             const razon =
-                interaction.options.getString("razon") || "Sin razón especificada";
+                interaction.options.getString("razon") ||
+                "Sin razón especificada";
 
-            const miembro = await interaction.guild.members.fetch(usuario.id);
+            const miembro =
+                await interaction.guild.members.fetch(usuario.id);
 
-            await miembro.timeout(minutos * 60 * 1000, razon);
+            await miembro.timeout(
+                minutos * 60 * 1000,
+                razon
+            );
 
             return interaction.reply(
                 `⏳ **${usuario.tag}** recibió un timeout de **${minutos} minutos**.\n📝 Razón: ${razon}`
@@ -402,15 +458,20 @@ client.on("interactionCreate", async interaction => {
 
         if (command === "warn") {
 
-            if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+            if (!interaction.member.permissions.has(
+                PermissionFlagsBits.ModerateMembers
+            )) {
                 return interaction.reply({
                     content: "❌ No tienes permiso para usar este comando.",
                     ephemeral: true
                 });
             }
 
-            const usuario = interaction.options.getUser("usuario");
-            const razon = interaction.options.getString("razon");
+            const usuario =
+                interaction.options.getUser("usuario");
+
+            const razon =
+                interaction.options.getString("razon");
 
             return interaction.reply(
                 `⚠️ **${usuario.tag}** ha recibido una advertencia.\n📝 Razón: ${razon}`
@@ -423,16 +484,22 @@ client.on("interactionCreate", async interaction => {
 
         if (command === "clear") {
 
-            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+            if (!interaction.member.permissions.has(
+                PermissionFlagsBits.ManageMessages
+            )) {
                 return interaction.reply({
                     content: "❌ No tienes permiso para usar este comando.",
                     ephemeral: true
                 });
             }
 
-            const cantidad = interaction.options.getInteger("cantidad");
+            const cantidad =
+                interaction.options.getInteger("cantidad");
 
-            await interaction.channel.bulkDelete(cantidad, true);
+            await interaction.channel.bulkDelete(
+                cantidad,
+                true
+            );
 
             return interaction.reply({
                 content: `🧹 Se eliminaron **${cantidad} mensajes**.`,
@@ -463,7 +530,9 @@ client.on("interactionCreate", async interaction => {
                     },
                     {
                         name: "📅 Creado",
-                        value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:F>`,
+                        value: `<t:${Math.floor(
+                            guild.createdTimestamp / 1000
+                        )}:F>`,
                         inline: false
                     }
                 )
@@ -481,11 +550,16 @@ client.on("interactionCreate", async interaction => {
         if (command === "user") {
 
             const usuario =
-                interaction.options.getUser("usuario") || interaction.user;
+                interaction.options.getUser("usuario") ||
+                interaction.user;
 
             const embed = new EmbedBuilder()
                 .setTitle(`👤 ${usuario.username}`)
-                .setThumbnail(usuario.displayAvatarURL({ size: 1024 }))
+                .setThumbnail(
+                    usuario.displayAvatarURL({
+                        size: 1024
+                    })
+                )
                 .addFields(
                     {
                         name: "🆔 ID",
@@ -494,7 +568,9 @@ client.on("interactionCreate", async interaction => {
                     },
                     {
                         name: "📅 Cuenta creada",
-                        value: `<t:${Math.floor(usuario.createdTimestamp / 1000)}:F>`,
+                        value: `<t:${Math.floor(
+                            usuario.createdTimestamp / 1000
+                        )}:F>`,
                         inline: false
                     }
                 )
@@ -512,14 +588,17 @@ client.on("interactionCreate", async interaction => {
         if (command === "avatar") {
 
             const usuario =
-                interaction.options.getUser("usuario") || interaction.user;
+                interaction.options.getUser("usuario") ||
+                interaction.user;
 
             const embed = new EmbedBuilder()
                 .setTitle(`🖼️ Avatar de ${usuario.username}`)
-                .setImage(usuario.displayAvatarURL({
-                    extension: "png",
-                    size: 1024
-                }))
+                .setImage(
+                    usuario.displayAvatarURL({
+                        extension: "png",
+                        size: 1024
+                    })
+                )
                 .setTimestamp();
 
             return interaction.reply({
@@ -587,13 +666,15 @@ client.on("interactionCreate", async interaction => {
 
     } catch (error) {
 
-        console.error(error);
+        console.error("❌ Error ejecutando comando:", error);
 
         if (interaction.replied || interaction.deferred) {
+
             return interaction.followUp({
                 content: "❌ Ocurrió un error al ejecutar el comando.",
                 ephemeral: true
             });
+
         }
 
         return interaction.reply({
